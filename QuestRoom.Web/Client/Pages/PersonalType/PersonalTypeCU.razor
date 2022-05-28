@@ -1,0 +1,121 @@
+﻿@page "/manage/PersonalType/{Id:int?}"
+
+@using System.ComponentModel.DataAnnotations
+@using System.IO
+@using System.Net.Http.Headers
+@using QuestRoom.ViewModel.PersonalType.Request
+@using QuestRoom.ViewModel.Type.Request
+@inject NavigationManager navManager;
+
+<EditForm Model="Model" OnValidSubmit="Success">
+    <DataAnnotationsValidator />
+    <div class="mat-layout-grid">
+        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-4">
+            @Title
+        </div>
+        <MatDivider />
+        <br />
+        <div class="mat-layout-grid-inner">
+            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-4">
+                <div class="mat-layout-grid-cell mat-layout-grid-cell-span-4">
+                    <p>
+                        <MatTextField Label="@nameof(Model.Name)" @bind-Value="Model.Name" />
+                        <ValidationMessage For="@(() => Model.Name)" />
+                    </p>
+                </div>
+
+                <div class="mat-layout-grid-cell mat-layout-grid-cell-span-4">
+                </div>
+                <div class="mat-layout-grid-cell mat-layout-grid-cell-span-4">
+                    <MatButton Type="submit" Raised="true">Send</MatButton>
+                </div>
+                <div class="mat-layout-grid-cell mat-layout-grid-cell-span-4">
+                </div>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    private string Title
+    {
+        get
+        {
+            return Id == null ? "Create PersonalType" : $"Edit PersonalType with id: '{Id}'";
+        }
+    }
+
+    [Inject]
+    HttpClient HttpClient { get; set; }
+
+    [Inject]
+    IJSRuntime JS { get; set; }
+
+    [Parameter]
+    public int? Id { get; set; } = default;
+
+    private UpdatePersonalTypeViewModel Model { get; set; } = new UpdatePersonalTypeViewModel();
+
+    public async Task Success()
+    {
+        Console.WriteLine("Success");
+
+        if (Id == null)
+        {
+            await CreateAsync();
+        }
+        else
+        {
+            await UpdateAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetAsync();
+    }
+
+    private async Task GetAsync()
+    {
+        if (Id != default)
+        {
+            var responce = await HttpClient.GetAsync($"api/PersonalType/Get?id={Id}");
+            var result = await responce.Content.ReadFromJsonAsync<UpdatePersonalTypeViewModel>();
+
+            Console.WriteLine("getResult: " + result);
+
+            Model = result ?? Model;
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        var result = await HttpClient.PostAsJsonAsync(@"api/PersonalType/Create", Model);
+
+        if (result.IsSuccessStatusCode)
+        {
+            var id = await result.Content.ReadAsStringAsync();
+            Id = Convert.ToInt32(id);
+            await JS.InvokeAsync<object>("alert", $"Successful created! with id: '{id}'");
+            navManager.NavigateTo($"/manage/PersonalType/{Id}");
+        }
+        else
+        {
+            await JS.InvokeAsync<object>("alert", $"CreationError {await result.Content.ReadAsStringAsync()}");
+        }
+    }
+
+    private async Task UpdateAsync()
+    {
+        var result = await HttpClient.PutAsJsonAsync(@"api/PersonalType/Update", Model);
+
+        if (result.IsSuccessStatusCode)
+        {
+            await JS.InvokeAsync<object>("alert", $"Successful updated! for id: '{Model.Id}'");
+        }
+        else
+        {
+            await JS.InvokeAsync<object>("alert", $"UpdateError {await result.Content.ReadAsStringAsync()}");
+        }
+    }
+}
